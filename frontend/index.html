@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#06111f" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="JARVIS" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icon.svg" />
+    <title>JARVIS</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <canvas id="orb-canvas"></canvas>
+
+    <!-- Minimal controls — top right -->
+    <div id="controls">
+      <button id="btn-mute" title="Mute/Unmute">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" y1="19" x2="12" y2="23"/>
+        </svg>
+      </button>
+      <button id="btn-menu" title="Menu">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Dropdown menu -->
+    <div id="menu-dropdown" style="display:none">
+      <button id="btn-settings">Settings</button>
+      <button id="btn-restart">Restart Server</button>
+      <button id="btn-fix-self">Fix Yourself</button>
+    </div>
+
+    <section id="command-panel" aria-label="Manual command panel">
+      <div id="command-toolbar">
+        <label for="language-select">Language</label>
+        <div id="toolbar-actions">
+          <select id="language-select">
+            <option value="en-IN">English (India)</option>
+            <option value="hi-IN">Hindi</option>
+            <option value="bn-IN">Bengali</option>
+            <option value="gu-IN">Gujarati</option>
+            <option value="kn-IN">Kannada</option>
+            <option value="ml-IN">Malayalam</option>
+            <option value="mr-IN">Marathi</option>
+            <option value="pa-IN">Punjabi</option>
+            <option value="ta-IN">Tamil</option>
+            <option value="te-IN">Telugu</option>
+            <option value="ur-IN">Urdu</option>
+          </select>
+          <button id="install-app" type="button" hidden>Install</button>
+        </div>
+      </div>
+      <div id="command-feed"></div>
+      <form id="command-form">
+        <input
+          id="command-input"
+          type="text"
+          placeholder="type a command for jarvis... for example: open notepad"
+          autocomplete="off"
+        />
+        <button id="command-send" type="submit">Send</button>
+      </form>
+    </section>
+
+    <div id="status-text"></div>
+    <div id="jarvis-label">JARVIS</div>
+    <div id="error-text"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,18 @@
+anthropic>=0.39.0
+httpx>=0.27.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+pydantic>=2.0.0
+websockets>=13.0
+playwright>=1.40.0
+pyyaml>=6.0
+edge-tts>=6.1.12
+google-generativeai>=0.8.3
+openai>=1.52.0
+python-dotenv>=1.0.1
+pyautogui; platform_system == "Windows"
+pygetwindow; platform_system == "Windows"
+pywin32; platform_system == "Windows"
+SpeechRecognition; platform_system == "Windows"
+pyttsx3; platform_system == "Windows"
+PyAudio; platform_system == "Windows"

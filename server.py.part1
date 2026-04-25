@@ -1,0 +1,120 @@
+import os
+import logging
+import asyncio
+import time
+import traceback
+from datetime import datetime
+from pathlib import Path
+from typing import Optional, List, Dict, Any
+
+import anthropic
+import google.generativeai as genai
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from openai import AsyncOpenAI
+
+# Internal imports
+from actions import (
+    execute_action, monitor_build, open_terminal, open_browser, 
+    open_claude_in_project, _generate_project_name, prompt_existing_terminal
+)
+from work_session import WorkSession
+from brain import brain
+from work_mode import is_casual_question
+from screen import get_active_windows, take_screenshot, describe_screen, format_windows_for_context
+from calendar_access import (
+    get_todays_events, get_upcoming_events, get_next_event, 
+    format_events_for_context, format_schedule_summary, refresh_cache as refresh_calendar_cache
+)
+from mail_access import (
+    get_unread_count, get_recent_messages, search_messages, 
+    format_mail_for_context, format_mail_summary, refresh_cache as refresh_mail_cache
+)
+from notes_access import (
+    get_recent_notes, search_notes, create_note, 
+    format_notes_for_context, format_notes_summary, refresh_cache as refresh_notes_cache
+)
+from performance import (
+    JARVIS_SYSTEM_PROMPT, FAST_CHAT_SYSTEM_PROMPT, 
+    BYPASS_PHRASES, response_cache, throttler, parallel_response_and_audio
+)
+from tasks import ClaudeTaskManager, Task, TaskPriority
+
+# -- Configuration -----------------------------------------------------------
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(name)s] %(levelname)s: %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+log = logging.getLogger("jarvis")
+
+# Load environment variables
+from dotenv import load_dotenv
+load_dotenv()
+
+# App Constants
+USER_NAME = os.getenv("USER_NAME", "Nithin")
+PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "google").lower()
+TTS_PROVIDER = os.getenv("TTS_PROVIDER", "edge").lower()
+EDGE_VOICE = os.getenv("EDGE_VOICE", "en-GB-RyanNeural")
+
+# ---------------------------------------------------------------------------
+# LLM Response
+# ---------------------------------------------------------------------------
+
+async def generate_response(
+    text: str,
+    client: anthropic.AsyncAnthropic,
+    task_mgr: Optional[ClaudeTaskManager],
+    projects: List[str],
+    conversation_history: List[Dict[str, str]],
+    last_response: str = "",
+    session_summary: str = "",
+) -> str:
+    """Generate JARVIS response using the unified JarvisBrain."""
+    try:
+        current_time = datetime.now().strftime("%I:%M %p")
+        weather = "Weather data unavailable"
+        
+        # Build the system prompt
+        system = JARVIS_SYSTEM_PROMPT.format(
+            user_name=USER_NAME,
+            current_time=current_time,
+            weather_info=weather,
+            project_dir=PROJECT_DIR,
+            screen_context="Screen context limited on Windows",
+            calendar_context="Calendar unavailable on Windows",
+            mail_context="Mail unavailable on Windows",
+            active_tasks=str(task_mgr.get_active_tasks()) if task_mgr else "[]",
+            dispatch_context="",
+            known_projects=", ".join(projects)
+        )
+        
+        # Use the Unified Brain module
+        return await brain.think(
+            prompt=text,
+            history=conversation_history,
+            system_prompt=system
+        )
+        
+    except Exception as e:
+        log.error(f"Brain failure: {e}")
+        traceback.print_exc()
+        return "I'm having trouble reaching my internal brain components, sir."
+
+# ---------------------------------------------------------------------------
+# Background Summaries
+# ---------------------------------------------------------------------------
+
+async def generate_summary(prompt: str, system: str = "Summarize this in 1-2 sentences.") -> str:
+    """Generate a short summary using the Brain."""
+    try:
+        return await brain.think(prompt=prompt, system_prompt=system)
+    except Exception as e:
+        log.error(f"Summary failed: {e}")
+        return "Summary unavailable."
+
+# [Rest of the file follows...]
