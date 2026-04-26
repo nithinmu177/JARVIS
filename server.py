@@ -4,6 +4,7 @@ import re
 import json
 import logging
 import os
+import shutil
 import sys
 import time
 import uuid
@@ -31,6 +32,7 @@ from actions import (
     parse_desktop_command, get_desktop_access_status
 )
 from brain import brain
+from mobile_actions import mobile_controller
 from work_mode import WorkSession, is_casual_question
 from screen import get_active_windows, take_screenshot, describe_screen, format_windows_for_context
 from calendar_access import (
@@ -75,17 +77,44 @@ LLM_PROVIDER = os.getenv("LLM_PROVIDER", "google").lower()
 TTS_PROVIDER = os.getenv("TTS_PROVIDER", "edge").lower()
 EDGE_VOICE = os.getenv("EDGE_VOICE", "en-GB-RyanNeural")
 LANGUAGE_VOICE_MAP = {
-    "en-IN": "en-IN-NeerjaExpressiveNeural",
-    "hi-IN": "hi-IN-SwaraNeural",
-    "bn-IN": "bn-IN-TanishaaNeural",
-    "gu-IN": "gu-IN-DhwaniNeural",
-    "kn-IN": "kn-IN-SapnaNeural",
-    "ml-IN": "ml-IN-SobhanaNeural",
-    "mr-IN": "mr-IN-AarohiNeural",
-    "pa-IN": "pa-IN-GurleenNeural",
-    "ta-IN": "ta-IN-PallaviNeural",
-    "te-IN": "te-IN-ShrutiNeural",
-    "ur-IN": "ur-IN-GulNeural",
+    "af-ZA": "af-ZA-AdriNeural", "sq-AL": "sq-AL-AnilaNeural", "am-ET": "am-ET-AmehaNeural",
+    "ar-DZ": "ar-DZ-AminaNeural", "ar-BH": "ar-BH-AliNeural", "ar-EG": "ar-EG-SalmaNeural",
+    "ar-IQ": "ar-IQ-BasselNeural", "ar-JO": "ar-JO-SanaNeural", "ar-KW": "ar-KW-FahedNeural",
+    "ar-LB": "ar-LB-LaylaNeural", "ar-LY": "ar-LY-ImanNeural", "ar-MA": "ar-MA-JamalNeural",
+    "ar-OM": "ar-OM-AbdullahNeural", "ar-QA": "ar-QA-AmalNeural", "ar-SA": "ar-SA-HamedNeural",
+    "ar-SY": "ar-SY-AmanyNeural", "ar-TN": "ar-TN-HediNeural", "ar-AE": "ar-AE-FatimaNeural",
+    "ar-YE": "ar-YE-MaryamNeural", "az-AZ": "az-AZ-BabekNeural", "bn-BD": "bn-BD-NabanitaNeural",
+    "bn-IN": "bn-IN-TanishaaNeural", "gu-IN": "gu-IN-DhwaniNeural", "hi-IN": "hi-IN-SwaraNeural",
+    "kn-IN": "kn-IN-SapnaNeural", "ml-IN": "ml-IN-SobhanaNeural", "mr-IN": "mr-IN-AarohiNeural",
+    "ta-IN": "ta-IN-PallaviNeural", "te-IN": "te-IN-ShrutiNeural", "ur-IN": "ur-IN-GulNeural",
+    "zh-CN": "zh-CN-XiaoxiaoNeural", "zh-TW": "zh-TW-HsiaoChenNeural", "hr-HR": "hr-HR-GabrijelaNeural",
+    "cs-CZ": "cs-CZ-AntoninNeural", "da-DK": "da-DK-ChristelNeural", "nl-BE": "nl-BE-ArnaudNeural",
+    "nl-NL": "nl-NL-ColetteNeural", "en-AU": "en-AU-WilliamMultilingualNeural", "en-CA": "en-CA-ClaraNeural",
+    "en-HK": "en-HK-YanNeural", "en-IN": "en-IN-NeerjaExpressiveNeural", "en-IE": "en-IE-ConnorNeural",
+    "en-KE": "en-KE-AsiliaNeural", "en-NZ": "en-NZ-MitchellNeural", "en-NG": "en-NG-AbeoNeural",
+    "en-PH": "en-PH-JamesNeural", "en-US": "en-US-EmmaMultilingualNeural", "en-SG": "en-SG-LunaNeural",
+    "en-ZA": "en-ZA-LeahNeural", "en-TZ": "en-TZ-ElimuNeural", "en-GB": "en-GB-LibbyNeural",
+    "et-EE": "et-EE-AnuNeural", "fil-PH": "fil-PH-AngeloNeural", "fi-FI": "fi-FI-HarriNeural",
+    "fr-BE": "fr-BE-CharlineNeural", "fr-CA": "fr-CA-ThierryNeural", "fr-FR": "fr-FR-RemyMultilingualNeural",
+    "fr-CH": "fr-CH-ArianeNeural", "gl-ES": "gl-ES-RoiNeural", "ka-GE": "ka-GE-EkaNeural",
+    "de-AT": "de-AT-IngridNeural", "de-DE": "de-DE-FlorianMultilingualNeural", "de-CH": "de-CH-JanNeural",
+    "el-GR": "el-GR-AthinaNeural", "gu-IN": "gu-IN-DhwaniNeural", "he-IL": "he-IL-AvriNeural",
+    "hi-IN": "hi-IN-MadhurNeural", "hu-HU": "hu-HU-NoemiNeural", "is-IS": "is-IS-GudrunNeural",
+    "id-ID": "id-ID-ArdiNeural", "ga-IE": "ga-IE-ColmNeural", "it-IT": "it-IT-GiuseppeMultilingualNeural",
+    "ja-JP": "ja-JP-KeitaNeural", "jv-ID": "jv-ID-DimasNeural", "kn-IN": "kn-IN-GaganNeural",
+    "kk-KZ": "kk-KZ-AigulNeural", "km-KH": "km-KH-PisethNeural", "ko-KR": "ko-KR-HyunsuMultilingualNeural",
+    "lo-LA": "lo-LA-ChanthavongNeural", "lv-LV": "lv-LV-EveritaNeural", "lt-LT": "lt-LT-LeonasNeural",
+    "mk-MK": "mk-MK-AleksandarNeural", "ms-MY": "ms-MY-OsmanNeural", "ml-IN": "ml-IN-MidhunNeural",
+    "mt-MT": "mt-MT-GraceNeural", "mr-IN": "mr-IN-AarohiNeural", "mn-MN": "mn-MN-BataaNeural",
+    "ne-NP": "ne-NP-HemkalaNeural", "nb-NO": "nb-NO-FinnNeural", "ps-AF": "ps-AF-GulNawazNeural",
+    "fa-IR": "fa-IR-DilaraNeural", "pl-PL": "pl-PL-MarekNeural", "pt-BR": "pt-BR-ThalitaMultilingualNeural",
+    "pt-PT": "pt-PT-DuarteNeural", "ro-RO": "ro-RO-AlinaNeural", "ru-RU": "ru-RU-DmitryNeural",
+    "sr-RS": "sr-RS-NicholasNeural", "si-LK": "si-LK-SameeraNeural", "sk-SK": "sk-SK-LukasNeural",
+    "sl-SI": "sl-SI-PetraNeural", "so-SO": "so-SO-MuuseNeural", "es-AR": "es-AR-ElenaNeural",
+    "es-MX": "es-MX-DaliaNeural", "es-ES": "es-ES-XimenaNeural", "sv-SE": "sv-SE-MattiasNeural",
+    "ta-IN": "ta-IN-PallaviNeural", "te-IN": "te-IN-MohanNeural", "th-TH": "th-TH-NiwatNeural",
+    "tr-TR": "tr-TR-EmelNeural", "uk-UA": "uk-UA-OstapNeural", "ur-IN": "ur-IN-GulNeural",
+    "vi-VN": "vi-VN-HoaiMyNeural", "zu-ZA": "zu-ZA-ThandoNeural"
 }
 
 # ---------------------------------------------------------------------------
@@ -105,26 +134,142 @@ class ClaudeTaskManager:
 
 task_manager = ClaudeTaskManager()
 _last_greeting_time = 0
+SERVER_STARTED_AT = time.time()
+ENV_PATH = Path(PROJECT_DIR) / ".env"
+
+
+class SettingKeyPayload(BaseModel):
+    key_name: str
+    key_value: str
+
+
+class PreferencePayload(BaseModel):
+    user_name: str = ""
+    honorific: str = "sir"
+    calendar_accounts: str = "auto"
+
+
+class KeyTestPayload(BaseModel):
+    key_value: str | None = None
+
+
+def _read_env_lines() -> list[str]:
+    if not ENV_PATH.exists():
+        return []
+    return ENV_PATH.read_text(encoding="utf-8").splitlines()
+
+
+def _write_env_value(key: str, value: str) -> None:
+    lines = _read_env_lines()
+    new_line = f"{key}={value}"
+    replaced = False
+    updated_lines: list[str] = []
+
+    for line in lines:
+        if line.startswith(f"{key}="):
+            updated_lines.append(new_line)
+            replaced = True
+        else:
+            updated_lines.append(line)
+
+    if not replaced:
+        updated_lines.append(new_line)
+
+    ENV_PATH.write_text("\n".join(updated_lines) + "\n", encoding="utf-8")
+    os.environ[key] = value
+
+
+def _count_memory_entries() -> int:
+    try:
+        return len(recall("jarvis memory preference note task project", limit=100))
+    except Exception:
+        return 0
+
+
+def _count_open_tasks() -> int:
+    try:
+        return len(get_open_tasks())
+    except Exception:
+        return 0
+
+
+def _settings_status_payload() -> dict:
+    return {
+        "claude_code_installed": shutil.which("claude") is not None,
+        "calendar_accessible": sys.platform == "darwin",
+        "mail_accessible": sys.platform == "darwin",
+        "notes_accessible": sys.platform == "darwin",
+        "memory_count": _count_memory_entries(),
+        "task_count": _count_open_tasks(),
+        "server_port": int(os.getenv("PORT", "8340")),
+        "uptime_seconds": max(0, int(time.time() - SERVER_STARTED_AT)),
+        "env_keys_set": {
+            "anthropic": bool(os.getenv("ANTHROPIC_API_KEY")),
+            "fish_audio": bool(os.getenv("FISH_API_KEY")),
+            "fish_voice_id": bool(os.getenv("FISH_VOICE_ID")),
+            "user_name": os.getenv("USER_NAME", ""),
+        },
+        "assistant": {
+            "name": "JARVIS",
+            "llm_provider": LLM_PROVIDER,
+            "tts_provider": TTS_PROVIDER,
+        },
+    }
+
+
+def _build_runtime_context() -> dict[str, str]:
+    access = get_desktop_access_status()
+    desktop_context = (
+        "Full Windows desktop control is available."
+        if access.get("ok")
+        else f"Desktop control is limited: {access.get('message', 'Unavailable')}"
+    )
+    return {
+        "weather_info": "Weather data unavailable",
+        "screen_context": desktop_context,
+        "calendar_context": "Calendar unavailable on Windows",
+        "mail_context": "Mail unavailable on Windows",
+    }
 
 
 def apply_speech_corrections(text: str) -> str:
     """Normalize common speech-to-text errors for command routing."""
     corrected = text.strip()
+    corrected = re.sub(r"\s+", " ", corrected)
+    corrected = re.sub(r"[.?!]+$", "", corrected)
+
     replacements = {
+        r"^\s*hello\s+(jarvis|service|travis|java|javis)\b": r"jarvis",
+        r"^\s*hello\s+(aura|ora)\b": r"aura",
+        r"^\s*(hey|hi|okay|ok)\s+(jarvis|service|travis|java|javis)\b": r"jarvis",
+        r"^\s*(hey|hi|okay|ok)\s+(aura|ora)\b": r"aura",
+        r"\bservice\b": "jarvis",
+        r"\btravis\b": "jarvis",
+        r"\bjavis\b": "jarvis",
+        r"\bjava is\b": "jarvis",
+        r"\bjarviss\b": "jarvis",
+        r"\bora\b": "aura",
         r"\bcloud code\b": "claude code",
         r"\bclock code\b": "claude code",
+        r"\bclawed code\b": "claude code",
+        r"\bplot code\b": "claude code",
         r"\bnote pad\b": "notepad",
         r"\bpower shell\b": "powershell",
+        r"\bpower sell\b": "powershell",
         r"\bcontrol\b": "ctrl",
+        r"\bnew line\b": "",
+        r"\bfull stop\b": "",
     }
     for pattern, replacement in replacements.items():
         corrected = re.sub(pattern, replacement, corrected, flags=re.IGNORECASE)
+
+    corrected = re.sub(r"\s+", " ", corrected).strip(" ,:-")
     return corrected
 
 
 def extract_wake_command(text: str) -> str | None:
     """Return the command after an explicit wake word, or None."""
-    match = re.match(r"^\s*(jarvis|aura)\b[\s,:-]*(.+)$", text, re.IGNORECASE)
+    match = re.match(r"^\s*(?:hello|hey|hi|ok|okay)?\s*(jarvis|aura)\b[\s,:-]*(.+)$", text, re.IGNORECASE)
     if not match:
         return None
     command = match.group(2).strip()
@@ -168,16 +313,16 @@ async def generate_response(
     """Generate JARVIS response using the unified JarvisBrain."""
     try:
         current_time = datetime.now().strftime("%I:%M %p")
-        weather = "Weather data unavailable"
+        runtime_context = _build_runtime_context()
         
         system = JARVIS_SYSTEM_PROMPT.format(
             user_name=USER_NAME,
             current_time=current_time,
-            weather_info=weather,
+            weather_info=runtime_context["weather_info"],
             project_dir=PROJECT_DIR,
-            screen_context="Screen context limited on Windows",
-            calendar_context="Calendar unavailable on Windows",
-            mail_context="Mail unavailable on Windows",
+            screen_context=runtime_context["screen_context"],
+            calendar_context=runtime_context["calendar_context"],
+            mail_context=runtime_context["mail_context"],
             active_tasks=task_mgr.get_active_tasks_summary() if task_mgr else "[]",
             dispatch_context="",
             known_projects=", ".join(projects)
@@ -196,17 +341,72 @@ async def generate_response(
 # TTS
 # ---------------------------------------------------------------------------
 
-def resolve_voice_for_language(language: str | None) -> str:
-    if not language:
+def resolve_voice_for_language(voice_or_lang: str | None) -> str:
+    if not voice_or_lang:
         return EDGE_VOICE
-    return LANGUAGE_VOICE_MAP.get(language, EDGE_VOICE)
+    
+    # If it's a language code, map it
+    if voice_or_lang in LANGUAGE_VOICE_MAP:
+        return LANGUAGE_VOICE_MAP[voice_or_lang]
+    
+    # If it's already a full Edge voice ID or 'fish-audio', return as is
+    if "Neural" in voice_or_lang or voice_or_lang == "fish-audio":
+        return voice_or_lang
+        
+    return EDGE_VOICE
 
 
 async def synthesize_speech(text: str, voice: str | None = None) -> Optional[bytes]:
     if not text: return None
+    
+    # Determine provider and voice
+    provider = TTS_PROVIDER
+    target_voice = voice or EDGE_VOICE
+    
+    # If voice is specifically set to 'fish-audio', override provider
+    if target_voice == "fish-audio":
+        provider = "fish"
+    
+    # --- Fish Audio Path ---
+    if provider == "fish":
+        fish_key = os.getenv("FISH_API_KEY")
+        voice_id = os.getenv("FISH_VOICE_ID", "7efa380916694064a347395034d6932b") # Default: Matthew
+        
+        if fish_key:
+            try:
+                log.info(f"Synthesizing with Fish Audio (voice={voice_id})")
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(
+                        "https://api.fish.audio/v1/tts",
+                        headers={
+                            "Authorization": f"Bearer {fish_key}",
+                            "Content-Type": "application/json",
+                        },
+                        json={
+                            "text": text,
+                            "reference_id": voice_id,
+                            "format": "mp3",
+                            "latency": "normal"
+                        },
+                        timeout=15.0
+                    )
+                    if response.status_code == 200:
+                        return response.content
+                    else:
+                        log.error(f"Fish Audio API error ({response.status_code}): {response.text}")
+            except Exception as e:
+                log.error(f"Fish Audio synthesis failed: {e}")
+        else:
+            log.warning("Fish Audio requested but FISH_API_KEY is missing. Falling back to Edge.")
+
+    # --- Edge TTS Path (Default / Fallback) ---
     try:
+        # If we came here from Fish fallback, use default voice
+        if target_voice == "fish-audio":
+            target_voice = EDGE_VOICE
+            
         import edge_tts
-        communicate = edge_tts.Communicate(text, voice or EDGE_VOICE)
+        communicate = edge_tts.Communicate(text, target_voice)
         audio_bytes = b""
         async with asyncio.timeout(10.0): # 10 second timeout for TTS
             async for chunk in communicate.stream():
@@ -214,21 +414,17 @@ async def synthesize_speech(text: str, voice: str | None = None) -> Optional[byt
                     audio_bytes += chunk["data"]
         return audio_bytes if audio_bytes else None
     except Exception as e:
-        if voice and voice != EDGE_VOICE:
-            log.warning(f"TTS voice {voice} failed, falling back to default voice: {e}")
+        log.error(f"TTS error: {e}")
+        # Final fallback to base default if specific voice failed
+        if target_voice != EDGE_VOICE:
             try:
-                import edge_tts
                 communicate = edge_tts.Communicate(text, EDGE_VOICE)
                 audio_bytes = b""
-                async with asyncio.timeout(10.0):
-                    async for chunk in communicate.stream():
-                        if chunk["type"] == "audio":
-                            audio_bytes += chunk["data"]
-                return audio_bytes if audio_bytes else None
-            except Exception as fallback_error:
-                log.error(f"TTS fallback error: {fallback_error}")
-        else:
-            log.error(f"TTS error: {e}")
+                async for chunk in communicate.stream():
+                    if chunk["type"] == "audio":
+                        audio_bytes += chunk["data"]
+                return audio_bytes
+            except: pass
     return None
 
 def strip_markdown_for_tts(text: str) -> str:
@@ -270,6 +466,56 @@ async def health():
 async def access_status():
     return get_desktop_access_status()
 
+
+@app.get("/api/settings/status")
+async def settings_status():
+    return _settings_status_payload()
+
+
+@app.get("/api/settings/preferences")
+async def settings_preferences():
+    return {
+        "user_name": os.getenv("USER_NAME", ""),
+        "honorific": os.getenv("HONORIFIC", "sir"),
+        "calendar_accounts": os.getenv("CALENDAR_ACCOUNTS", "auto"),
+    }
+
+
+@app.post("/api/settings/preferences")
+async def save_settings_preferences(payload: PreferencePayload):
+    _write_env_value("USER_NAME", payload.user_name)
+    _write_env_value("HONORIFIC", payload.honorific)
+    _write_env_value("CALENDAR_ACCOUNTS", payload.calendar_accounts or "auto")
+    return {"saved": True}
+
+
+@app.post("/api/settings/keys")
+async def save_settings_key(payload: SettingKeyPayload):
+    _write_env_value(payload.key_name, payload.key_value)
+    return {"saved": True, "key_name": payload.key_name}
+
+
+@app.post("/api/settings/test-anthropic")
+async def test_anthropic_key(payload: KeyTestPayload):
+    key = (payload.key_value or os.getenv("ANTHROPIC_API_KEY", "")).strip()
+    valid = key.startswith("sk-ant-") and len(key) > 20
+    return {"valid": valid, "error": None if valid else "Anthropic key format looks invalid."}
+
+
+@app.post("/api/settings/test-fish")
+async def test_fish_key(payload: KeyTestPayload):
+    key = (payload.key_value or os.getenv("FISH_API_KEY", "")).strip()
+    valid = len(key) >= 20
+    return {"valid": valid, "error": None if valid else "Fish key format looks invalid."}
+
+
+@app.post("/api/restart")
+async def restart_server():
+    return {
+        "ok": True,
+        "message": "Restart request acknowledged. If you started the server manually, restart that terminal process.",
+    }
+
 @app.websocket("/ws/voice")
 async def voice_handler(ws: WebSocket):
     await ws.accept()
@@ -279,6 +525,19 @@ async def voice_handler(ws: WebSocket):
     session_voice = resolve_voice_for_language(session_language)
 
     await ws.send_json({"type": "access_status", "status": get_desktop_access_status()})
+    
+    # Periodic Mobile Status Update
+    async def update_mobile_status():
+        while True:
+            try:
+                mobile_controller.connect() # Try to connect
+                status = mobile_controller.get_status()
+                await ws.send_json({"type": "mobile_status", "status": status})
+            except Exception:
+                pass
+            await asyncio.sleep(5)
+
+    mobile_task = asyncio.create_task(update_mobile_status())
     
     # Send Greeting
     greeting = "Systems online, sir."
@@ -302,7 +561,7 @@ async def voice_handler(ws: WebSocket):
 
                 action_text = user_text
                 if source == "voice":
-                    action_text = extract_wake_command(user_text) or ""
+                    action_text = extract_wake_command(user_text) or user_text
 
                 direct_action = parse_desktop_command(action_text) if action_text else None
                 if direct_action:
@@ -316,17 +575,6 @@ async def voice_handler(ws: WebSocket):
                         await ws.send_json({"type": "audio", "data": base64.b64encode(conf_audio).decode(), "text": confirmation})
                     else:
                         await ws.send_json({"type": "text", "text": confirmation})
-                    await ws.send_json({"type": "status", "state": "idle"})
-                    continue
-
-                if source == "voice" and parse_desktop_command(user_text):
-                    warning = "For laptop control by voice, start with Jarvis. Example: Jarvis open notepad."
-                    warn_audio = await synthesize_speech(warning, session_voice)
-                    await ws.send_json({"type": "status", "state": "speaking"})
-                    if warn_audio:
-                        await ws.send_json({"type": "audio", "data": base64.b64encode(warn_audio).decode(), "text": warning})
-                    else:
-                        await ws.send_json({"type": "text", "text": warning})
                     await ws.send_json({"type": "status", "state": "idle"})
                     continue
                 
@@ -351,14 +599,15 @@ async def voice_handler(ws: WebSocket):
                     
                     # Prepare system prompt
                     current_time = datetime.now().strftime("%I:%M %p")
+                    runtime_context = _build_runtime_context()
                     system = JARVIS_SYSTEM_PROMPT.format(
                         user_name=USER_NAME,
                         current_time=current_time,
-                        weather_info="Optimal conditions",
+                        weather_info=runtime_context["weather_info"],
                         project_dir=PROJECT_DIR,
-                        screen_context="Windows 11 System Access",
-                        calendar_context="Ready",
-                        mail_context="Ready",
+                        screen_context=runtime_context["screen_context"],
+                        calendar_context=runtime_context["calendar_context"],
+                        mail_context=runtime_context["mail_context"],
                         active_tasks="[]",
                         dispatch_context="",
                         known_projects=""
@@ -368,20 +617,22 @@ async def voice_handler(ws: WebSocket):
                         full_text += chunk
                         sentence_buffer += chunk
                         
-                        # Detect sentence boundaries to generate audio chunks
-                        if any(term in sentence_buffer for term in [". ", "! ", "? ", "\n"]):
-                            # Split buffer into sentences
-                            parts = re.split(r'(?<=[.!?\n]) ', sentence_buffer)
+                        # Detect sentence boundaries OR meaningful pauses to generate audio chunks faster
+                        if any(term in sentence_buffer for term in [". ", "! ", "? ", "\n", ", ", "; "]):
+                            # Split buffer into segments
+                            parts = re.split(r'(?<=[.!?\n,;]) ', sentence_buffer)
                             for i in range(len(parts) - 1):
-                                sentence = parts[i].strip()
-                                if sentence:
-                                    # Send partial text immediately
+                                segment = parts[i].strip()
+                                # Only speak if the segment is long enough to be meaningful (at least 3 words or ends in punctuation)
+                                if len(segment.split()) >= 3 or (segment and segment[-1] in ".!?"):
                                     await ws.send_json({"type": "status", "state": "speaking"})
-                                    tts_part = strip_markdown_for_tts(sentence)
+                                    tts_part = strip_markdown_for_tts(segment)
                                     audio_part = await synthesize_speech(tts_part, session_voice)
                                     if audio_part:
-                                        await ws.send_json({"type": "audio", "data": base64.b64encode(audio_part).decode(), "text": sentence})
-                            sentence_buffer = parts[-1]
+                                        await ws.send_json({"type": "audio", "data": base64.b64encode(audio_part).decode(), "text": segment})
+                            
+                            if len(parts) > 1:
+                                sentence_buffer = parts[-1]
                     
                     # Send remaining buffer
                     if sentence_buffer.strip():
@@ -413,6 +664,7 @@ async def voice_handler(ws: WebSocket):
                 
     except WebSocketDisconnect:
         log.info("Voice WebSocket disconnected")
+        mobile_task.cancel()
 
 
 @app.get("/")

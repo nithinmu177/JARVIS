@@ -16,6 +16,26 @@ export interface VoiceConfig {
   wakeWords: string[];
 }
 
+const COMMAND_HINTS = [
+  "jarvis",
+  "aura",
+  "open",
+  "close",
+  "search",
+  "look up",
+  "build",
+  "create",
+  "make",
+  "play",
+  "stop",
+  "call",
+  "message",
+  "notepad",
+  "chrome",
+  "powershell",
+  "terminal",
+];
+
 export function isSpeechRecognitionSupported(): boolean {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const SR = (window as any).SpeechRecognition || (typeof webkitSpeechRecognition !== "undefined" ? webkitSpeechRecognition : null);
@@ -29,8 +49,61 @@ function startsWithWakeWord(text: string, wakeWords: string[]): boolean {
   const lowered = text.trim().toLowerCase();
   return wakeWords.some((wakeWord) => {
     const normalized = wakeWord.toLowerCase();
-    return lowered === normalized || lowered.startsWith(`${normalized} `) || lowered.startsWith(`${normalized},`) || lowered.startsWith(`${normalized}:`);
+    return (
+      lowered === normalized ||
+      lowered.startsWith(`${normalized} `) ||
+      lowered.startsWith(`${normalized},`) ||
+      lowered.startsWith(`${normalized}:`) ||
+      lowered.startsWith(`hello ${normalized}`) ||
+      lowered.startsWith(`hey ${normalized}`) ||
+      lowered.startsWith(`hi ${normalized}`)
+    );
   });
+}
+
+function normalizeTranscript(text: string): string {
+  return text
+    .trim()
+    .replace(/[.?!]+$/g, "")
+    .replace(/\s+/g, " ");
+}
+
+function scoreTranscriptCandidate(text: string, confidence: number, config: VoiceConfig): number {
+  const normalized = normalizeTranscript(text).toLowerCase();
+  let score = confidence || 0;
+
+  if (startsWithWakeWord(normalized, config.wakeWords)) {
+    score += 3;
+  }
+
+  for (const hint of COMMAND_HINTS) {
+    if (normalized.includes(hint)) {
+      score += 0.5;
+    }
+  }
+
+  if (normalized.length >= 4) {
+    score += 0.2;
+  }
+
+  return score;
+}
+
+function pickBestTranscript(result: any, config: VoiceConfig): string {
+  const candidates: Array<{ text: string; score: number }> = [];
+
+  for (let i = 0; i < result.length; i++) {
+    const alternative = result[i];
+    const text = normalizeTranscript(String(alternative?.transcript || ""));
+    if (!text) continue;
+    candidates.push({
+      text,
+      score: scoreTranscriptCandidate(text, Number(alternative?.confidence || 0), config),
+    });
+  }
+
+  candidates.sort((a, b) => b.score - a.score);
+  return candidates[0]?.text || "";
 }
 
 export function createVoiceInput(
@@ -48,7 +121,7 @@ export function createVoiceInput(
   const recognition = new SR();
   recognition.continuous = true;
   recognition.interimResults = true;
-  recognition.maxAlternatives = 1;
+  recognition.maxAlternatives = 5;
   recognition.lang = getConfig().language;
 
   let shouldListen = false;
@@ -63,8 +136,7 @@ export function createVoiceInput(
       const result = event.results[i];
       if (!result.isFinal) continue;
 
-      const alternative = result[0];
-      const text = String(alternative?.transcript || "").trim();
+      const text = pickBestTranscript(result, config);
       if (!text || text.length < 2) continue;
 
       const normalized = text.toLowerCase();

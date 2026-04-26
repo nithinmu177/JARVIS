@@ -1,18 +1,40 @@
 {
-  "name": "JARVIS",
+  "name": "JARVIS AI Assistant",
   "short_name": "JARVIS",
-  "description": "Voice-first AI assistant with a live orb interface.",
+  "description": "Voice-first AI assistant with a live orb interface and system control.",
+  "id": "/jarvis-ai",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#050508",
   "theme_color": "#06111f",
   "orientation": "portrait",
   "icons": [
     {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
       "src": "/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
+    }
+  ],
+  "categories": ["productivity", "utilities"],
+  "shortcuts": [
+    {
+      "name": "Open JARVIS",
+      "url": "/",
+      "description": "Launch the JARVIS interface"
     }
   ]
 }

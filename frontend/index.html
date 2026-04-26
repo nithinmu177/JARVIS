@@ -40,22 +40,81 @@
       <button id="btn-fix-self">Fix Yourself</button>
     </div>
 
+    <aside id="live-panel" aria-label="Live notifications">
+      <section id="access-card">
+        <div class="live-header">Access</div>
+        <div id="access-pill" class="live-pill neutral">checking...</div>
+        <div id="access-detail">Desktop access status will appear here.</div>
+      </section>
+
+      <section id="activity-card">
+        <div class="live-header">Ongoing</div>
+        <div id="activity-list"></div>
+      </section>
+
+      <section id="mobile-card">
+        <div class="live-header">Mobile Bridge</div>
+        <div id="mobile-status" class="live-pill neutral">no device</div>
+        <div id="mobile-detail">Connect your phone via USB for direct control.</div>
+        <div class="mobile-controls" style="margin-top:10px; display:flex; gap:5px;">
+           <button id="btn-answer-call" class="mobile-btn" style="display:none">Answer Call</button>
+           <button id="btn-open-mobile-app" class="mobile-btn" style="display:none">Open App</button>
+        </div>
+      </section>
+    </aside>
+
     <section id="command-panel" aria-label="Manual command panel">
       <div id="command-toolbar">
         <label for="language-select">Language</label>
         <div id="toolbar-actions">
           <select id="language-select">
-            <option value="en-IN">English (India)</option>
-            <option value="hi-IN">Hindi</option>
-            <option value="bn-IN">Bengali</option>
-            <option value="gu-IN">Gujarati</option>
-            <option value="kn-IN">Kannada</option>
-            <option value="ml-IN">Malayalam</option>
-            <option value="mr-IN">Marathi</option>
-            <option value="pa-IN">Punjabi</option>
-            <option value="ta-IN">Tamil</option>
-            <option value="te-IN">Telugu</option>
-            <option value="ur-IN">Urdu</option>
+            <optgroup label="English Varieties">
+              <option value="en-IN-NeerjaExpressiveNeural">English (India) - Neerja</option>
+              <option value="en-IN-PrabhatNeural">English (India) - Prabhat</option>
+              <option value="en-GB-RyanNeural" selected>English (UK) - Ryan (Default)</option>
+              <option value="en-GB-SoniaNeural">English (UK) - Sonia</option>
+              <option value="en-US-GuyNeural">English (US) - Guy</option>
+              <option value="en-US-JennyNeural">English (US) - Jenny</option>
+              <option value="en-AU-NatashaNeural">English (AU) - Natasha</option>
+            </optgroup>
+            <optgroup label="Indian Languages">
+              <option value="hi-IN-SwaraNeural">Hindi - Swara (Female)</option>
+              <option value="hi-IN-MadhurNeural">Hindi - Madhur (Male)</option>
+              <option value="bn-IN-TanishaaNeural">Bengali - Tanishaa (Female)</option>
+              <option value="bn-IN-BashkarNeural">Bengali - Bashkar (Male)</option>
+              <option value="gu-IN-DhwaniNeural">Gujarati - Dhwani (Female)</option>
+              <option value="gu-IN-NiranjanNeural">Gujarati - Niranjan (Male)</option>
+              <option value="kn-IN-SapnaNeural">Kannada - Sapna (Female)</option>
+              <option value="kn-IN-GaganNeural">Kannada - Gagan (Male)</option>
+              <option value="ml-IN-SobhanaNeural">Malayalam - Sobhana (Female)</option>
+              <option value="ml-IN-MidhunNeural">Malayalam - Midhun (Male)</option>
+              <option value="mr-IN-AarohiNeural">Marathi - Aarohi (Female)</option>
+              <option value="mr-IN-ManoharNeural">Marathi - Manohar (Male)</option>
+              <option value="ta-IN-PallaviNeural">Tamil - Pallavi (Female)</option>
+              <option value="ta-IN-ValluvarNeural">Tamil - Valluvar (Male)</option>
+              <option value="te-IN-ShrutiNeural">Telugu - Shruti (Female)</option>
+              <option value="te-IN-MohanNeural">Telugu - Mohan (Male)</option>
+              <option value="ur-IN-GulNeural">Urdu - Gul (Female)</option>
+              <option value="ur-IN-SalmanNeural">Urdu - Salman (Male)</option>
+            </optgroup>
+            <optgroup label="Global Languages">
+              <option value="fr-FR-RemyMultilingualNeural">French</option>
+              <option value="de-DE-FlorianMultilingualNeural">German</option>
+              <option value="es-ES-XimenaNeural">Spanish</option>
+              <option value="ja-JP-KeitaNeural">Japanese</option>
+              <option value="ko-KR-HyunsuMultilingualNeural">Korean</option>
+              <option value="zh-CN-XiaoxiaoNeural">Chinese (Mandarin)</option>
+              <option value="ar-SA-HamedNeural">Arabic</option>
+              <option value="ru-RU-DmitryNeural">Russian</option>
+              <option value="pt-BR-ThalitaMultilingualNeural">Portuguese (Brazil)</option>
+              <option value="it-IT-GiuseppeMultilingualNeural">Italian</option>
+              <option value="tr-TR-EmelNeural">Turkish</option>
+              <option value="vi-VN-HoaiMyNeural">Vietnamese</option>
+              <option value="nl-NL-ColetteNeural">Dutch</option>
+            </optgroup>
+            <optgroup label="Premium Voices">
+              <option value="fish-audio">Fish Audio (Custom Clone)</option>
+            </optgroup>
           </select>
           <button id="install-app" type="button" hidden>Install</button>
         </div>
@@ -71,6 +130,17 @@
         <button id="command-send" type="submit">Send</button>
       </form>
     </section>
+
+    <!-- Full-screen Install Prompt for Mobile -->
+    <div id="mobile-install-overlay" style="display:none">
+      <div class="install-card">
+        <img src="/icon-512.png" alt="JARVIS" class="install-icon" />
+        <h2>Install JARVIS</h2>
+        <p>To use JARVIS as a real app on your phone, you must add it to your home screen.</p>
+        <button id="btn-install-now" class="primary-btn">Get App Now</button>
+        <button id="btn-skip-install" class="secondary-btn">Maybe Later</button>
+      </div>
+    </div>
 
     <div id="status-text"></div>
     <div id="jarvis-label">JARVIS</div>

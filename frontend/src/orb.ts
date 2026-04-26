@@ -27,7 +27,12 @@ export function createOrb(canvas: HTMLCanvasElement): Orb {
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 1000);
-  camera.position.z = 80;
+  
+  // Dynamic scaling for mobile
+  function getCameraZ() {
+    return window.innerWidth < 768 ? 110 : 80;
+  }
+  camera.position.z = getCameraZ();
 
   // ── Particles ──
   const geo = new THREE.BufferGeometry();
@@ -316,6 +321,7 @@ export function createOrb(canvas: HTMLCanvasElement): Orb {
   function onResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
+    camera.position.z = getCameraZ();
     renderer.setSize(window.innerWidth, window.innerHeight);
   }
 

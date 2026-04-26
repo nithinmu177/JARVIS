@@ -24,17 +24,24 @@ class JarvisBrain:
         self.openai_key = os.getenv("OPENAI_API_KEY")
         self.openrouter_key = os.getenv("OPENROUTER_API_KEY")
         self.groq_key = os.getenv("GROQ_API_KEY")
-        self.ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11435")
+        self.ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
         self.ollama_model = os.getenv("OLLAMA_MODEL", "mistral")
         
-        # Priority list for speed: Flash Lite is the fastest free model
+        # Priority list for speed and intelligence
         self.gemini_models = [
-            'models/gemini-2.0-flash-lite',
             'models/gemini-2.0-flash',
+            'models/gemini-2.0-flash-lite',
             'models/gemini-flash-latest',
             'models/gemini-pro-latest'
         ]
         self.repairing = False
+
+    def _default_system_prompt(self) -> str:
+        return (
+            "You are JARVIS, Nithin's unified assistant. "
+            "You are one intelligent assistant, not multiple personalities. "
+            "Be clear, capable, concise, and natural."
+        )
 
     async def heal_self(self, error_msg: str, traceback_str: str):
         """Automatically trigger a self-repair task via Claude Code."""
@@ -62,8 +69,8 @@ class JarvisBrain:
     async def think(self, prompt: str, history: list = None, system_prompt: str = "") -> str:
         """Process a thought at INSTANT speed (non-streaming)."""
         log.info(f"Thinking (provider={self.provider})...")
-        # Hyper-lean prompt for speed
-        system_prompt = "You are AURA. Be extremely fast, brief, and helpful. Use contractions. Natural human friend tone. Response must be under 3 sentences unless complex info is requested. God Mode active."
+        if not system_prompt:
+            system_prompt = self._default_system_prompt()
         
         # Trim history to last 3 messages for speed
         if history and len(history) > 3:
@@ -91,7 +98,7 @@ class JarvisBrain:
         """Stream thoughts chunk by chunk for maximum perceived speed."""
         log.info(f"Stream Thinking (provider={self.provider})...")
         if not system_prompt:
-            system_prompt = "You are AURA. Be extremely fast, brief, and helpful. Use contractions. Natural human friend tone."
+            system_prompt = self._default_system_prompt()
         
         if history and len(history) > 3:
             history = history[-3:]
@@ -281,24 +288,35 @@ class JarvisBrain:
                 if history:
                     messages.extend(history[-5:])
                 messages.append({"role": "user", "content": prompt})
-                
+
                 response = await client.post(
                     f"{self.ollama_url}/api/chat",
                     json={
-                        "model": self.ollama_model, # Use configurable model
+                        "model": self.ollama_model,
                         "messages": messages,
                         "stream": False
                     },
-                    timeout=120.0 # Increase timeout for slow local CPUs
+                    timeout=httpx.Timeout(120.0, connect=5.0)
                 )
                 if response.status_code == 200:
                     return response.json()["message"]["content"]
-                else:
-                    log.error(f"Ollama error: {response.text}")
-                    return f"Ollama Error: {response.text}"
+                if response.status_code == 404:
+                    return (
+                        f"Ollama is reachable, but the model '{self.ollama_model}' was not found. "
+                        f"Run: ollama pull {self.ollama_model}"
+                    )
+
+                log.error(f"Ollama error: {response.text}")
+                return f"Ollama error ({response.status_code}): {response.text}"
+        except httpx.ConnectError:
+            log.error(f"Ollama connect failed at {self.ollama_url}")
+            return f"Ollama connection failed. Make sure Ollama is running on {self.ollama_url}."
+        except httpx.TimeoutException:
+            log.error("Ollama request timed out")
+            return f"Ollama took too long to respond from {self.ollama_url}. Try a smaller model or wait a bit."
         except Exception as e:
             log.error(f"Ollama failed: {e}")
-            return f"Ollama connection failed: {e}. Is Ollama running on {self.ollama_url}?"
+            return f"Ollama failed: {e}"
 
 # Global brain instance
 brain = JarvisBrain()

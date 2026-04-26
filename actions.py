@@ -15,6 +15,7 @@ import webbrowser
 import subprocess
 from pathlib import Path
 from urllib.parse import quote
+from mobile_actions import mobile_controller
 
 try:
     import pyautogui
@@ -60,6 +61,9 @@ APP_ALIASES = {
     "word": "winword.exe",
     "excel": "excel.exe",
     "spotify": "spotify.exe",
+    "whatsapp": "WhatsApp.exe",
+    "telegram": "Telegram.exe",
+    "discord": "Discord.exe",
     "vs code": "code.exe",
     "visual studio code": "code.exe",
 }
@@ -71,6 +75,10 @@ if pyautogui is not None:
 
 def desktop_automation_ready() -> bool:
     return not CLOUD_DEPLOYMENT and pyautogui is not None
+
+
+def _pause(seconds: float) -> None:
+    time.sleep(seconds)
 
 
 async def _mark_terminal_as_jarvis(revert_after: float = 5.0):
@@ -411,10 +419,13 @@ def get_desktop_access_status() -> dict:
             if size.width <= 0 or size.height <= 0:
                 status["ok"] = False
                 status["issues"].append("Screen automation is not available.")
+            mouse_pos = pyautogui.position()
+            status["checks"]["mouse"] = {"ok": True, "value": [mouse_pos.x, mouse_pos.y]}
         except Exception as e:
             status["ok"] = False
             status["checks"]["screen"] = {"ok": False, "error": str(e)}
             status["issues"].append(f"PyAutoGUI screen access failed: {e}")
+            status["checks"]["mouse"] = {"ok": False, "error": str(e)}
 
     try:
         import pygetwindow as gw
@@ -563,8 +574,90 @@ def parse_desktop_command(text: str) -> dict | None:
     if press_match:
         return {"action": "press", "target": press_match.group(1).strip()}
 
+    move_match = re.match(r"^(?:move|move mouse|move cursor)\s+(?:to\s+)?(\d+)[,\s]+(\d+)$", lowered)
+    if move_match:
+        return {"action": "move_mouse", "target": f"{move_match.group(1)},{move_match.group(2)}"}
+
+    move_dir_match = re.match(r"^(?:move|move mouse|move cursor)\s+(left|right|up|down)(?:\s+by\s+|\s+)(\d+)?(?:\s+pixels?)?$", lowered)
+    if move_dir_match:
+        amount = move_dir_match.group(2) or "120"
+        return {"action": "move_mouse_relative", "target": f"{move_dir_match.group(1)}|{amount}"}
+
     if lowered in {"click", "click mouse"}:
         return {"action": "click", "target": ""}
+
+    click_at_match = re.match(r"^(?:click|left click)\s+(?:at|on)\s+(\d+)[,\s]+(\d+)$", lowered)
+    if click_at_match:
+        return {"action": "click", "target": f"{click_at_match.group(1)},{click_at_match.group(2)}"}
+
+    right_click_match = re.match(r"^right click(?:\s+(?:at|on)\s+(\d+)[,\s]+(\d+))?$", lowered)
+    if right_click_match:
+        coords = f"{right_click_match.group(1)},{right_click_match.group(2)}" if right_click_match.group(1) else ""
+        return {"action": "right_click", "target": coords}
+
+    double_click_match = re.match(r"^double click(?:\s+(?:at|on)\s+(\d+)[,\s]+(\d+))?$", lowered)
+    if double_click_match:
+        coords = f"{double_click_match.group(1)},{double_click_match.group(2)}" if double_click_match.group(1) else ""
+        return {"action": "double_click", "target": coords}
+
+    drag_match = re.match(r"^(?:drag|drag mouse|drag cursor)\s+(?:to\s+)?(\d+)[,\s]+(\d+)$", lowered)
+    if drag_match:
+        return {"action": "drag_mouse", "target": f"{drag_match.group(1)},{drag_match.group(2)}"}
+
+    scroll_match = re.match(r"^scroll\s+(up|down)(?:\s+by\s+|\s+)?(\d+)?$", lowered)
+    if scroll_match:
+        amount = scroll_match.group(2) or "500"
+        return {"action": "scroll_mouse", "target": f"{scroll_match.group(1)}|{amount}"}
+
+    if lowered in {"copy", "copy this"}:
+        return {"action": "press", "target": "ctrl+c"}
+
+    if lowered in {"paste", "paste this"}:
+        return {"action": "press", "target": "ctrl+v"}
+
+    if lowered in {"cut", "cut this"}:
+        return {"action": "press", "target": "ctrl+x"}
+
+    if lowered in {"select all"}:
+        return {"action": "press", "target": "ctrl+a"}
+
+    if lowered in {"undo"}:
+        return {"action": "press", "target": "ctrl+z"}
+
+    if lowered in {"redo"}:
+        return {"action": "press", "target": "ctrl+y"}
+
+    if lowered in {"go back", "back"}:
+        return {"action": "press", "target": "alt+left"}
+
+    if lowered in {"go forward", "forward"}:
+        return {"action": "press", "target": "alt+right"}
+
+    if lowered in {"refresh", "reload"}:
+        return {"action": "press", "target": "f5"}
+
+    app_search_match = re.match(r"^(?:search|find)\s+(?:for\s+)?(.+?)\s+in\s+(?:the\s+)?(?:current\s+)?app$", lowered)
+    if app_search_match:
+        return {"action": "app_search", "target": app_search_match.group(1).strip()}
+
+    app_search_named_match = re.match(r"^(?:search|find)\s+(?:for\s+)?(.+?)\s+in\s+(.+)$", lowered)
+    if app_search_named_match:
+        target_area = app_search_named_match.group(2).strip()
+        if target_area in {"spotify", "whatsapp", "telegram", "discord", "chrome", "edge", "notepad", "browser"}:
+            return {"action": "app_search", "target": f"{target_area}|{app_search_named_match.group(1).strip()}"}
+
+    message_match = re.match(r"^(?:message|text|send message to|send a message to)\s+(.+?)\s+(?:saying|that says|saying that)\s+(.+)$", lowered)
+    if message_match:
+        return {"action": "message_contact", "target": f"{message_match.group(1).strip()}|{message_match.group(2).strip()}"}
+
+    quick_message_match = re.match(r"^(?:message|text)\s+(.+)$", lowered)
+    if quick_message_match and " saying " not in lowered and "that says" not in lowered:
+        return {"action": "message_contact", "target": f"{quick_message_match.group(1).strip()}|"}
+
+    play_match = re.match(r"^(?:play(?:\s+the)?(?:\s+song|\s+music)?)\s+(.+)$", lowered)
+    if play_match:
+        track = re.sub(r"^(?:song|music)\s+", "", play_match.group(1).strip())
+        return {"action": "play_song", "target": track}
 
     if lowered in {"what apps are open", "what windows are open", "list windows", "show windows"}:
         return {"action": "windows", "target": ""}
@@ -770,6 +863,169 @@ async def move_and_click(x: int = None, y: int = None) -> dict:
         return {"success": False, "confirmation": "Failed to click."}
 
 
+async def move_mouse(x: int, y: int) -> dict:
+    """Move the mouse pointer without clicking."""
+    if not desktop_automation_ready():
+        return {"success": False, "confirmation": "Mouse movement is only available on your local Windows app."}
+
+    try:
+        pyautogui.moveTo(x, y, duration=0.15)
+        return {"success": True, "confirmation": f"Moved the mouse to {x}, {y}."}
+    except Exception as e:
+        log.error(f"move_mouse failed: {e}")
+        return {"success": False, "confirmation": "Failed to move the mouse."}
+
+
+async def mouse_click(button: str = "left", clicks: int = 1, x: int | None = None, y: int | None = None) -> dict:
+    """Click using the mouse with optional coordinates."""
+    if not desktop_automation_ready():
+        return {"success": False, "confirmation": "Mouse control is only available on your local Windows app."}
+
+    try:
+        if x is not None and y is not None:
+            pyautogui.click(x=x, y=y, clicks=clicks, interval=0.12, button=button)
+        else:
+            pyautogui.click(clicks=clicks, interval=0.12, button=button)
+
+        label = "double-clicked" if clicks == 2 else f"{button}-clicked" if button != "left" else "clicked"
+        return {"success": True, "confirmation": f"{label.capitalize()} successfully."}
+    except Exception as e:
+        log.error(f"mouse_click failed: {e}")
+        return {"success": False, "confirmation": "Failed to click with the mouse."}
+
+
+def _parse_xy(target: str) -> tuple[int | None, int | None]:
+    match = re.match(r"^\s*(\d+)\s*,\s*(\d+)\s*$", target or "")
+    if not match:
+        return None, None
+    return int(match.group(1)), int(match.group(2))
+
+
+def _parse_int(target: str, default: int = 0) -> int:
+    match = re.search(r"-?\d+", target or "")
+    return int(match.group(0)) if match else default
+
+
+async def search_in_app(query: str, app_name: str = "") -> dict:
+    """Open or focus an app and search inside it using common shortcuts."""
+    if not desktop_automation_ready():
+        return {"success": False, "confirmation": "In-app search is only available on your local Windows app."}
+
+    try:
+        if app_name:
+            await open_visible_target(app_name)
+            _pause(1.2)
+
+        if (app_name or "").lower() in {"chrome", "edge", "browser"}:
+            pyautogui.hotkey("ctrl", "l")
+        else:
+            pyautogui.hotkey("ctrl", "f")
+        _pause(0.2)
+        pyautogui.write(query, interval=0.01)
+        _pause(0.15)
+        pyautogui.press("enter")
+        location = app_name if app_name else "the active app"
+        return {"success": True, "confirmation": f"Searched for {query} in {location}."}
+    except Exception as e:
+        log.error(f"search_in_app failed: {e}")
+        return {"success": False, "confirmation": "Failed to search inside the app."}
+
+
+async def move_mouse_relative(direction: str, amount: int = 120) -> dict:
+    """Move the mouse relative to its current position."""
+    if not desktop_automation_ready():
+        return {"success": False, "confirmation": "Mouse movement is only available on your local Windows app."}
+
+    try:
+        x, y = pyautogui.position()
+        offsets = {
+            "left": (-amount, 0),
+            "right": (amount, 0),
+            "up": (0, -amount),
+            "down": (0, amount),
+        }
+        dx, dy = offsets.get(direction, (0, 0))
+        pyautogui.moveTo(x + dx, y + dy, duration=0.15)
+        return {"success": True, "confirmation": f"Moved mouse {direction} by {amount} pixels."}
+    except Exception as e:
+        log.error(f"move_mouse_relative failed: {e}")
+        return {"success": False, "confirmation": "Failed to move the mouse."}
+
+
+async def scroll_mouse(direction: str, amount: int = 500) -> dict:
+    """Scroll vertically."""
+    if not desktop_automation_ready():
+        return {"success": False, "confirmation": "Scrolling is only available on your local Windows app."}
+
+    try:
+        pyautogui.scroll(amount if direction == "up" else -amount)
+        return {"success": True, "confirmation": f"Scrolled {direction}."}
+    except Exception as e:
+        log.error(f"scroll_mouse failed: {e}")
+        return {"success": False, "confirmation": "Failed to scroll."}
+
+
+async def drag_mouse_to(x: int, y: int) -> dict:
+    """Drag the mouse to a destination."""
+    if not desktop_automation_ready():
+        return {"success": False, "confirmation": "Drag control is only available on your local Windows app."}
+
+    try:
+        pyautogui.dragTo(x, y, duration=0.25, button="left")
+        return {"success": True, "confirmation": f"Dragged to {x}, {y}."}
+    except Exception as e:
+        log.error(f"drag_mouse_to failed: {e}")
+        return {"success": False, "confirmation": "Failed to drag the mouse."}
+
+
+async def message_contact(contact: str, message: str = "", app_name: str = "whatsapp") -> dict:
+    """Open a messaging app, search for a contact, and optionally send a message."""
+    if not desktop_automation_ready():
+        return {"success": False, "confirmation": "Messaging control is only available on your local Windows app."}
+
+    try:
+        await open_visible_target(app_name)
+        _pause(1.8)
+        pyautogui.hotkey("ctrl", "f")
+        _pause(0.2)
+        pyautogui.write(contact, interval=0.01)
+        _pause(0.5)
+        pyautogui.press("enter")
+        _pause(0.4)
+
+        if message:
+            pyautogui.write(message, interval=0.01)
+            _pause(0.15)
+            pyautogui.press("enter")
+            return {"success": True, "confirmation": f"Sent your message to {contact} in {app_name}."}
+
+        return {"success": True, "confirmation": f"Opened chat with {contact} in {app_name}."}
+    except Exception as e:
+        log.error(f"message_contact failed: {e}")
+        return {"success": False, "confirmation": f"Failed to message {contact}."}
+
+
+async def play_song(track: str, app_name: str = "spotify") -> dict:
+    """Open a music app and search for a song."""
+    if not desktop_automation_ready():
+        return {"success": False, "confirmation": "Music control is only available on your local Windows app."}
+
+    try:
+        await open_visible_target(app_name)
+        _pause(2.0)
+        pyautogui.hotkey("ctrl", "l")
+        _pause(0.25)
+        pyautogui.write(track, interval=0.01)
+        _pause(0.2)
+        pyautogui.press("enter")
+        _pause(0.8)
+        pyautogui.press("enter")
+        return {"success": True, "confirmation": f"Trying to play {track} in {app_name}."}
+    except Exception as e:
+        log.error(f"play_song failed: {e}")
+        return {"success": False, "confirmation": f"Failed to play {track}."}
+
+
 async def screen_shot(name: str = "screenshot.png") -> dict:
     """Take a screenshot."""
     if not desktop_automation_ready():
@@ -835,14 +1091,58 @@ async def execute_action(intent: dict, projects: list = None) -> dict:
         keys = _normalize_hotkey_text(target)
         return await press_hotkey(*keys)
 
+    elif action == "move_mouse":
+        x, y = _parse_xy(target)
+        if x is None or y is None:
+            return {"success": False, "confirmation": "Usage: move mouse to X Y"}
+        return await move_mouse(x, y)
+
+    elif action == "move_mouse_relative":
+        direction, amount = (target.split("|", 1) + ["120"])[:2]
+        return await move_mouse_relative(direction.strip(), _parse_int(amount, 120))
+
     elif action == "click":
+        x, y = _parse_xy(target)
+        if x is not None and y is not None:
+            return await mouse_click("left", 1, x, y)
         return await move_and_click()
+
+    elif action == "right_click":
+        x, y = _parse_xy(target)
+        return await mouse_click("right", 1, x, y) if x is not None and y is not None else await mouse_click("right")
+
+    elif action == "double_click":
+        x, y = _parse_xy(target)
+        return await mouse_click("left", 2, x, y) if x is not None and y is not None else await mouse_click("left", 2)
+
+    elif action == "drag_mouse":
+        x, y = _parse_xy(target)
+        if x is None or y is None:
+            return {"success": False, "confirmation": "Usage: drag to X Y"}
+        return await drag_mouse_to(x, y)
+
+    elif action == "scroll_mouse":
+        direction, amount = (target.split("|", 1) + ["500"])[:2]
+        return await scroll_mouse(direction.strip(), _parse_int(amount, 500))
 
     elif action == "save":
         return await save_active_app(target)
 
     elif action == "focus":
         return await focus_window(target)
+
+    elif action == "app_search":
+        if "|" in target:
+            app_name, query = target.split("|", 1)
+            return await search_in_app(query.strip(), app_name.strip())
+        return await search_in_app(target)
+
+    elif action == "message_contact":
+        contact, message = (target.split("|", 1) + [""])[:2]
+        return await message_contact(contact.strip(), message.strip())
+
+    elif action == "play_song":
+        return await play_song(target)
 
     elif action == "screenshot":
         return await screen_shot(target if target else "jarvis_shot.png")
@@ -857,6 +1157,14 @@ async def execute_action(intent: dict, projects: list = None) -> dict:
             "confirmation": status["message"] if status["ok"] else " | ".join(status["issues"]),
             "details": status,
         }
+
+    elif action == "mobile_answer":
+        result = mobile_controller.answer_call()
+        return {"success": True, "confirmation": result}
+
+    elif action == "mobile_open":
+        result = mobile_controller.open_app(target)
+        return {"success": True, "confirmation": result}
 
     elif action == "windows":
         try:
