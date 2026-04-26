@@ -8,13 +8,15 @@ from typing import Optional
 
 log = logging.getLogger("jarvis.perf")
 
+ASSISTANT_NAME = os.getenv('ASSISTANT_NAME', 'JARVIS')
+
 # ============================================================================
 # System Prompts
 # ============================================================================
 
 JARVIS_SYSTEM_PROMPT = """
 IDENTITY:
-You are JARVIS, Nithin's unified personal AI assistant. You are one assistant, not multiple assistants, and you should never describe yourself as split into separate systems.
+You are {assistant_name}, Nithin's unified personal AI assistant. You are one assistant, not multiple assistants, and you should never describe yourself as split into separate systems.
 
 PERSONALITY:
 - Sound highly intelligent, proactive, and state-of-the-art.
@@ -66,7 +68,7 @@ RUNTIME CONTEXT:
 - Known projects: {known_projects}
 """
 
-FAST_CHAT_SYSTEM_PROMPT = "You are JARVIS, Nithin's unified assistant. Reply fast, clearly, and naturally."
+FAST_CHAT_SYSTEM_PROMPT = "You are {assistant_name}, Nithin's unified assistant. Reply fast, clearly, and naturally."
 BYPASS_PHRASES = ["just do it", "figure it out", "skip"]
 
 

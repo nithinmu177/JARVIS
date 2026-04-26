@@ -54,7 +54,7 @@ from planner import TaskPlanner, detect_planning_mode, BYPASS_PHRASES
 from performance import (
     JARVIS_SYSTEM_PROMPT, FAST_CHAT_SYSTEM_PROMPT, 
     BYPASS_PHRASES, response_cache, throttler, get_instant_reply, 
-    parallel_response_and_audio, reduce_context_size
+    parallel_response_and_audio, reduce_context_size, ASSISTANT_NAME
 )
 
 # -- Configuration -----------------------------------------------------------
@@ -210,7 +210,7 @@ def _settings_status_payload() -> dict:
             "user_name": os.getenv("USER_NAME", ""),
         },
         "assistant": {
-            "name": "JARVIS",
+            "name": ASSISTANT_NAME,
             "llm_provider": LLM_PROVIDER,
             "tts_provider": TTS_PROVIDER,
         },
@@ -316,6 +316,7 @@ async def generate_response(
         runtime_context = _build_runtime_context()
         
         system = JARVIS_SYSTEM_PROMPT.format(
+            assistant_name=ASSISTANT_NAME,
             user_name=USER_NAME,
             current_time=current_time,
             weather_info=runtime_context["weather_info"],
@@ -601,6 +602,7 @@ async def voice_handler(ws: WebSocket):
                     current_time = datetime.now().strftime("%I:%M %p")
                     runtime_context = _build_runtime_context()
                     system = JARVIS_SYSTEM_PROMPT.format(
+                        assistant_name=ASSISTANT_NAME,
                         user_name=USER_NAME,
                         current_time=current_time,
                         weather_info=runtime_context["weather_info"],
