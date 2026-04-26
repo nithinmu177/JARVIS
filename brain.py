@@ -18,7 +18,15 @@ class JarvisBrain:
     """
     
     def __init__(self):
-        self.provider = os.getenv("LLM_PROVIDER", "openrouter").lower()
+        self.provider = os.getenv("LLM_PROVIDER", "google").lower()
+        deployment_mode = os.getenv("JARVIS_DEPLOYMENT_MODE", "local").lower()
+        
+        # If in cloud mode (Render/GitHub), we cannot reach local Ollama.
+        # Fallback to Google Gemini (free/fast) or OpenRouter.
+        if deployment_mode == "cloud" and self.provider == "ollama":
+            log.info("Cloud deployment detected. Switching from Ollama to Google provider.")
+            self.provider = "google"
+            
         self.google_key = os.getenv("GOOGLE_API_KEY")
         self.anthropic_key = os.getenv("ANTHROPIC_API_KEY")
         self.openai_key = os.getenv("OPENAI_API_KEY")
